@@ -13,6 +13,12 @@ class APITestCase(unittest.TestCase):
         
         self.client = app.test_client()
         
+        # Configure headers with API key if authentication is enabled
+        self.headers = {'Content-Type': 'application/json'}
+        auth_key = app.config.get('API_AUTH_KEY')
+        if auth_key and auth_key.strip():
+            self.headers['X-API-KEY'] = auth_key
+        
         # Initialize the database and create tables
         with app.app_context():
             db.create_all()
@@ -40,7 +46,7 @@ class APITestCase(unittest.TestCase):
         response = self.client.post(
             '/api/v1/treino',
             data=json.dumps(payload),
-            content_type='application/json'
+            headers=self.headers
         )
         
         # Assert status code is 201 Created
@@ -58,7 +64,7 @@ class APITestCase(unittest.TestCase):
         print(f"[TEST] Treino:\n{data['treino_gerado']}\n")
 
         # Verify that it is persisted in the database by listing workouts
-        response_list = self.client.get('/api/v1/treinos')
+        response_list = self.client.get('/api/v1/treinos', headers=self.headers)
         self.assertEqual(response_list.status_code, 200)
         list_data = json.loads(response_list.data.decode('utf-8'))
         self.assertEqual(len(list_data), 1)
