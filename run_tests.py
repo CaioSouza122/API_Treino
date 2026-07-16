@@ -1,32 +1,37 @@
 import unittest
 import json
-from App import app
+from api_academia import create_app
+from api_academia.config import Config
 from api_academia.database import db
 from api_academia.models import Treino
 
+class TestConfig(Config):
+    TESTING = True
+    SQLALCHEMY_DATABASE_URI = 'sqlite:///:memory:'
+    # Disable rate limiting for unit tests
+    RATELIMIT_ENABLED = False
+
 class APITestCase(unittest.TestCase):
     def setUp(self):
-        # Configure app for testing
-        app.config['TESTING'] = True
-        # Use an in-memory SQLite database for testing to avoid polluting the main database
-        app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///:memory:'
-        
-        self.client = app.test_client()
+        # Instantiate a separate app instance with the test configuration
+        self.app = create_app(TestConfig)
+        self.client = self.app.test_client()
         
         # Configure headers with API key if authentication is enabled
         self.headers = {'Content-Type': 'application/json'}
-        auth_key = app.config.get('API_AUTH_KEY')
+        auth_key = self.app.config.get('API_AUTH_KEY')
         if auth_key and auth_key.strip():
             self.headers['X-API-KEY'] = auth_key
         
-        # Initialize the database and create tables
-        with app.app_context():
-            db.create_all()
+        # Push application context and create all tables
+        self.app_context = self.app.app_context()
+        self.app_context.push()
+        db.create_all()
 
     def tearDown(self):
-        with app.app_context():
-            db.session.remove()
-            db.drop_all()
+        db.session.remove()
+        db.drop_all()
+        self.app_context.pop()
 
     def test_health_check(self):
         """Test the health check endpoint."""
