@@ -1,4 +1,4 @@
-# Python cache files
+# Python cache and build artifacts
 __pycache__/
 *.pyc
 *.pyo
@@ -6,24 +6,29 @@ __pycache__/
 .pytest_cache/
 .coverage
 htmlcov/
+build/
+dist/
+*.egg-info/
 
-# Local databases
-api_academia.db
+# Virtual Environments
+.venv/
+venv/
+env/
+ENV/
 
-instance/
+# Local database files
 *.db
 *.sqlite
+*.sqlite3
+api_academia.db
+instance/
 
-# Environment variables & secrets
+# Environment & secret configuration files
 .env
 .flaskenv
 
-# OS-specific files
+# IDE & System specific files
+.vscode/
+.idea/
 .DS_Store
 Thumbs.db
-
-# Virtual environments
-venv/
-.venv/
-env/
-ActiveState.venv/
