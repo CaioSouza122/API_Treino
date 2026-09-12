@@ -1,47 +1,67 @@
-import os
-from flask import Flask
+"""Application Factory pattern module for api_academia.
+
+Initializes Flask extensions (CORS, Rate Limiter, SQLAlchemy) and registers route blueprints.
+"""
+
+from typing import Type
+from flask import Flask, jsonify
 from flask_cors import CORS
 from .config import Config
 from .database import db
 from .limiter import limiter
 from .routes import api_blueprint
 
-def create_app(config_class=Config):
-    """Application factory to create and configure the Flask app.
-    
+
+def create_app(config_class: Type[Config] = Config) -> Flask:
+    """Application factory to instantiate and configure the Flask app.
+
     Args:
-        config_class: Configuration class to load settings from.
-        
+        config_class: Configuration class containing environment settings.
+
     Returns:
-        Flask: Configured Flask application instance.
+        Flask: Fully configured Flask application instance.
     """
     app = Flask(__name__)
-    
-    # Load settings
+
+    # Load configuration
     app.config.from_object(config_class)
     config_class.init_app(app)
-    
-    # Enable CORS so other projects (web frontends, mobile backends, etc.) can fetch from this API.
-    # We load origins dynamically: either "*" or a specific list of domains from ALLOWED_ORIGINS.
+
+    # Configure CORS for allowed origins
     allowed_origins = app.config.get('ALLOWED_ORIGINS', '*')
-    if ',' in allowed_origins:
+    if isinstance(allowed_origins, str) and ',' in allowed_origins:
         allowed_origins = [origin.strip() for origin in allowed_origins.split(',')]
-        
-    CORS(app, resources={r"/api/*": {"origins": allowed_origins}})
-    
-    # Initialize rate limiting to protect the server and API keys
+
+    CORS(app, resources={r"/*": {"origins": allowed_origins}})
+
+    # Initialize extensions
     limiter.init_app(app)
-    
-    # Initialize database
     db.init_app(app)
-    
-    # Register blueprint with V1 pathing
+
+    # Register root landing route for health & documentation guidance
+    @app.route('/')
+    def home():
+        return jsonify({
+            "nome": "API de Treinos com IA (Gemini 2.5 Flash)",
+            "versao": "1.0.0",
+            "status": "online",
+            "mensagem": "Backend rodando com sucesso. Utilize os endpoints RESTful sob /api/v1/",
+            "endpoints": {
+                "health_check": "GET /api/v1/health",
+                "criar_treino": "POST /api/v1/treino",
+                "listar_treinos": "GET /api/v1/treinos",
+                "obter_treino": "GET /api/v1/treino/<id>",
+                "deletar_treino": "DELETE /api/v1/treino/<id>"
+            },
+            "documentacao": "Consulte o README.md para obter especificações de cURL e esquemas JSON."
+        }), 200
+
+    # Register API blueprint with V1 pathing
     app.register_blueprint(api_blueprint, url_prefix="/api/v1")
-    
-    # Auto-create SQLite or PostgreSQL database tables if they do not exist
+
+    # Auto-create database tables inside app context
     with app.app_context():
-        # Import models inside context to ensure they register correctly
-        from . import models
+        from . import models  # noqa: F401
         db.create_all()
-        
+
     return app
