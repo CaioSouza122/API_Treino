@@ -1,0 +1,52 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "api_academia"
+version = "1.0.0"
+description = "API RESTful em Flask com IA (Gemini 2.5 Flash) para geração e armazenamento de treinos de academia."
+readme = "README.md"
+requires-python = ">=3.9"
+authors = [
+    { name = "Caio Souza", email = "contato@exemplo.com" }
+]
+keywords = ["flask", "gemini-ai", "rest-api", "sqlalchemy", "pytest", "docker"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3.11",
+    "Framework :: Flask",
+    "Topic :: Software Development :: Libraries :: Application Frameworks",
+]
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "-v --tb=short"
+filterwarnings = [
+    "ignore::DeprecationWarning",
+    "ignore::UserWarning"
+]
+
+[tool.black]
+line-length = 100
+target-version = ['py311']
+include = '\.pyi?$'
+exclude = '''
+/(
+    \.git
+  | \.venv
+  | \.pytest_cache
+  | build
+  | dist
+)/
+'''
+
+[tool.flake8]
+max-line-length = 127
+max-complexity = 10
+exclude = [".git", ".venv", "__pycache__", "build", "dist"]
