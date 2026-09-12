@@ -1,169 +1,241 @@
-# API de Treinos com IA e Persistência de Dados
+# 🏋️ API de Treinos com IA e Persistência de Dados
 
-Esta é uma API robusta e pronta para produção construída em Python com **Flask**, integrada ao modelo de inteligência artificial de última geração **Gemini 2.5 Flash** e com banco de dados **SQLite** para persistir os treinos gerados.
-
-A API possui suporte nativo a **CORS (Cross-Origin Resource Sharing)**, permitindo que ela seja consumida diretamente por qualquer outro projeto externo (como sites em React, Vue, Next.js, aplicativos móveis ou outros servidores).
-
----
-
-## 🚀 Tecnologias Utilizadas
-
-- **Flask**: Web framework leve e flexível para Python.
-- **Flask-SQLAlchemy**: Integração e mapeamento objeto-relacional (ORM) para persistência SQL.
-- **Flask-CORS**: Habilita o compartilhamento de recursos de origens cruzadas, essencial para integração com frontends externos.
-- **Marshmallow**: Validação estrita de dados de entrada e serialização/desserialização de JSON.
-- **Google GenAI SDK**: Integração oficial com a inteligência artificial do Gemini.
-- **Python-dotenv**: Gerenciamento limpo de configurações e segredos via arquivo `.env`.
+<p align="center">
+  <img src="https://img.shields.io/badge/Python-3.11-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python 3.11" />
+  <img src="https://img.shields.io/badge/Flask-3.1-000000?style=for-the-badge&logo=flask&logoColor=white" alt="Flask" />
+  <img src="https://img.shields.io/badge/Google_Gemini-2.5_Flash-8E75B2?style=for-the-badge&logo=googlecloud&logoColor=white" alt="Google Gemini 2.5 Flash" />
+  <img src="https://img.shields.io/badge/Docker-Ready-2496ED?style=for-the-badge&logo=docker&logoColor=white" alt="Docker Ready" />
+  <img src="https://img.shields.io/badge/Pytest-100%25_Passing-0A9EDC?style=for-the-badge&logo=pytest&logoColor=white" alt="Pytest" />
+  <img src="https://img.shields.io/badge/License-MIT-green.svg?style=for-the-badge" alt="License MIT" />
+</p>
 
 ---
 
-## 🛠️ Como Configurar e Executar
+## 📌 Visão Geral do Projeto
+
+A **API de Treinos com IA** é uma solução backend robusta, escalável e pronta para produção desenvolvida em **Python** utilizando **Flask** e integrada ao modelo de inteligência artificial de última geração **Google Gemini 2.5 Flash**.
+
+A aplicação permite a geração dinâmica de planos de treino personalizados com base em objetivos fitness e níveis de experiência do usuário, armazenando os treinos gerados em um banco de dados relacional (**SQLite** por padrão ou **PostgreSQL** para produção).
+
+---
+
+## 🏗️ Arquitetura do Sistema
+
+A aplicação adota o padrão **Application Factory** e arquitetura em camadas (**Clean Architecture / Layered Architecture**), separando claramente rotas (controllers), modelos (ORM), validações (schemas DTO) e serviços externos de IA.
+
+```mermaid
+graph TD
+    Client[📱 Cliente / Frontend / Postman] -->|HTTP REST Request| AuthMiddleware[🛡️ X-API-KEY Auth Middleware]
+    AuthMiddleware -->|Valido| Limiter[⏱️ Rate Limiter - Flask-Limiter]
+    Limiter -->|Dentro do limite| Routes[🚦 API Blueprint Routes - /api/v1/]
+    
+    Routes -->|1. Valida Payload| Schema[📋 Marshmallow DTO Schema]
+    Routes -->|2. Executa Lógica| Service[🧠 Gemini Service Layer]
+    Service -->|3. Prompt HTTP Request| GeminiAPI[☁️ Google Gemini 2.5 Flash API]
+    GeminiAPI -->|4. Treino Gerado| Service
+    
+    Service -->|5. Retorna Texto| Routes
+    Routes -->|6. Persiste Dados| ORM[🗄️ SQLAlchemy ORM - Treino Model]
+    ORM -->|7. Salva Registro| DB[(💾 SQLite / PostgreSQL)]
+    Routes -->|8. Resposta JSON HTTP 201| Client
+```
+
+---
+
+## ✨ Destaques de Engenharia e Boas Práticas
+
+- **Padrão Application Factory**: Instanciação limpa e configurável do Flask app para desenvolvimento, testes e produção.
+- **Validação Estrita de DTOs**: Garantida pelo **Marshmallow**, impedindo requisições malformadas antes de processar a IA.
+- **Proteção contra Abuso (Rate Limiting)**: Limite configurável por IP (padrão 5 req/min no endpoint de IA) via **Flask-Limiter**.
+- **Autenticação Flexível**: Decorator `@require_api_key` que valida o cabeçalho `X-API-KEY` (desativável em desenvolvimento local).
+- **CORS Habilitado**: Configuração nativa via **Flask-CORS** para integrar com frontends React, Next.js, Vue ou aplicativos mobile.
+- **Suíte de Testes Automatizados**: Cobertura Pytest completa com **mocks** do serviço de IA (sem dependência de cota ou chamadas externas no CI).
+- **Integração Contínua (CI/CD)**: Pipeline no **GitHub Actions** automatizando execução de testes e linter **Flake8**.
+- **Containerização com Docker**: Imagem leve baseada em `python:3.11-slim` utilizando **Gunicorn** como servidor WSGI de produção.
+
+---
+
+## 📂 Estrutura do Repositório
+
+```text
+API_Treino/
+├── .github/
+│   ├── ISSUE_TEMPLATE/       # Templates para reporte de bugs e sugestões
+│   ├── PULL_REQUEST_TEMPLATE.md
+│   └── workflows/
+│       └── ci.yml            # Pipeline do GitHub Actions (Lint & Pytest)
+├── api_academia/             # Pacote principal da aplicação
+│   ├── __init__.py           # Application Factory e registro de extensões
+│   ├── auth.py               # Decorator de segurança X-API-KEY
+│   ├── config.py             # Carregamento de variáveis de ambiente
+│   ├── database.py           # Instância singleton do SQLAlchemy
+│   ├── limiter.py            # Instância do Flask-Limiter
+│   ├── models.py             # Modelo SQLAlchemy (Entidade Treino)
+│   ├── routes.py             # Controllers e Endpoints RESTful (/api/v1)
+│   ├── schemas.py            # Schemas Marshmallow de validação/serialização
+│   └── services.py           # Camada de Serviço (Integração Google GenAI)
+├── tests/                    # Suíte de testes automatizados com Pytest
+│   ├── conftest.py           # Fixtures do Pytest e mock da IA Gemini
+│   ├── test_auth_and_limiter.py
+│   ├── test_health.py
+│   └── test_treinos.py
+├── .env.example              # Modelo de variáveis de ambiente
+├── .gitignore                # Arquivos ignorados pelo Git
+├── app.py                    # Ponto de entrada WSGI / Execução local
+├── CONTRIBUTING.md           # Guia de contribuição e convenção de commits
+├── Dockerfile                # Configuração para deploy em container
+├── LICENSE                   # Licença MIT
+├── Makefile                  # Atalhos de comandos (install, test, run, lint)
+├── pyproject.toml            # Configuração unificada do Pytest e Flake8
+├── README.md                 # Documentação principal do projeto
+├── requirements.txt          # Dependências do projeto e de testes
+└── run_tests.py              # Script executável para rodar a suíte de testes
+```
+
+---
+
+## 🚀 Como Executar o Projeto
 
 ### 1. Pré-requisitos
-Certifique-se de ter o Python 3.8+ instalado em sua máquina.
-
-### 2. Instalar as Dependências
-No terminal, execute o comando para instalar todos os pacotes necessários:
-```bash
-pip install -r requirements.txt
-```
-
-### 3. Configurar Segredos e Variáveis
-Copie o arquivo `.env.example` para `.env` ou edite diretamente o arquivo `.env` gerado na pasta raiz.
-Substitua `SUA_CHAVE_DE_API_AQUI` pela sua chave real do Gemini:
-```env
-GEMINI_API_KEY=AIzaSy... (sua chave obtida no Google AI Studio)
-```
-
-#### 🗄️ Configurando o Banco de Dados (SQLite vs PostgreSQL):
-* **Padrão (SQLite):** Por padrão, se você deixar a linha do banco comentada no `.env`, a API criará e usará o arquivo `apipi.db` automaticamente na raiz. Não precisa configurar nada.
-* **PostgreSQL:** Para usar o seu banco PostgreSQL, remova o `#` da variável `DATABASE_URL` no `.env` e preencha a string de conexão:
-  ```env
-  DATABASE_URL=postgresql://usuario:senha@localhost:5432/nome_do_banco
-  ```
-
-> **Autenticação opcional:** Se você quiser proteger a API para que apenas seus aplicativos possam chamá-la, defina um token em `API_AUTH_KEY` (exemplo: `API_AUTH_KEY=meu_token_secreto`). Se deixar esse campo vazio, as requisições não exigirão autenticação (perfeito para fase de testes locais).
-
-#### 🛡️ Segurança Adicional:
-* **CORS Restrito:** No arquivo `.env`, você pode definir `ALLOWED_ORIGINS=https://meusite.com` para bloquear que outros domínios façam requisições para sua API em produção.
-* **Rate Limiting:** A rota `/treino` possui um limite padrão de **5 requisições por minuto por IP** para evitar abusos na sua chave do Gemini. Se excedido, a API retornará o status `429 Too Many Requests` com uma resposta estruturada.
-
-
-
-### 4. Iniciar a API
-Execute o arquivo principal:
-```bash
-python App.py
-```
-A API será iniciada no endereço: `http://localhost:5000`
-O banco de dados SQLite `apipi.db` será criado automaticamente no primeiro acesso.
+- **Python 3.11+**
+- **Git**
+- **Docker** *(opcional para execução em container)*
 
 ---
 
-## 📡 Endpoints da API (Documentação)
+### 2. Instalação e Execução Local
+
+```bash
+# 1. Clone o repositório
+git clone https://github.com/SeuUsuario/API_Treino.git
+cd API_Treino
+
+# 2. Crie e ative o ambiente virtual
+python -m venv .venv
+
+# No Windows (PowerShell):
+.\.venv\Scripts\Activate.ps1
+# No Linux/Mac:
+source .venv/bin/activate
+
+# 3. Instale as dependências
+pip install -r requirements.txt
+# Ou utilizando o Makefile:
+make install
+
+# 4. Configure o arquivo de variáveis de ambiente
+cp .env.example .env
+```
+
+Edite o arquivo `.env` e preencha sua chave do Google Gemini:
+```env
+GEMINI_API_KEY=sua_chave_obtida_no_google_ai_studio
+```
+
+Inicie o servidor de desenvolvimento:
+```bash
+python app.py
+# Ou via Makefile:
+make run
+```
+A API estará acessível em: `http://localhost:5000`
+
+---
+
+### 3. Execução com Docker
+
+```bash
+# Construir a imagem Docker
+docker build -t api-academia:latest .
+
+# Rodar o container na porta 5000
+docker run -p 5000:5000 --env-file .env api-academia:latest
+```
+
+---
+
+## 🧪 Testes Automatizados e Qualidade de Código
+
+O projeto conta com suíte de testes utilizando **Pytest** e **pytest-mock**:
+
+```bash
+# Executar todos os testes com relatório de cobertura
+pytest --cov=api_academia tests/
+
+# Ou utilizando o script utilitário:
+python run_tests.py
+
+# Verificar padrão de código com Flake8
+flake8 .
+```
+
+---
+
+## 📡 Documentação dos Endpoints RESTful
 
 Todos os endpoints estão sob o prefixo `/api/v1`.
 
-### 1. Verificar Status da API
-* **Método:** `GET`
-* **Rota:** `/api/v1/health`
-* **Descrição:** Retorna se o servidor está ativo.
-* **Exemplo de Resposta (JSON):**
-  ```json
-  {
-    "status": "operante",
-    "mensagem": "API de Treinos com IA rodando com sucesso!"
-  }
-  ```
-
-### 2. Criar Novo Treino (Gera via Gemini e salva no Banco de Dados)
-* **Método:** `POST`
-* **Rota:** `/api/v1/treino`
-* **Cabeçalhos requeridos (se `API_AUTH_KEY` estiver configurado):** `X-API-KEY: <sua_chave>`
-* **Corpo da Requisição (JSON):**
-  ```json
-  {
-    "objetivo": "Ganho de massa muscular nos braços",
-    "nivel": "intermediario"
-  }
-  ```
-  *(Nota: O campo `nivel` é opcional e assume `"iniciante"` por padrão. Valores permitidos: `"iniciante"`, `"intermediario"`, `"avancado"`)*
-* **Exemplo de Resposta (JSON - HTTP 201):**
-  ```json
-  {
-    "id": 1,
-    "objetivo": "Ganho de massa muscular nos braços",
-    "nivel": "intermediario",
-    "treino_gerado": "### Treino de Braços - Nível Intermediário\n\n1. **Rosca Direta com Barra** - 3 séries de 10 repetições...\n2. **Tríceps Testa** - 3 séries de 12 repetições...\n3. **Rosca Martelo** - 3 séries de 10 repetições...",
-    "criado_em": "2026-05-28T18:38:00Z"
-  }
-  ```
-
-### 3. Listar Todos os Treinos Persistidos
-* **Método:** `GET`
-* **Rota:** `/api/v1/treinos`
-* **Cabeçalhos requeridos (se `API_AUTH_KEY` estiver configurado):** `X-API-KEY: <sua_chave>`
-* **Exemplo de Resposta (JSON - HTTP 200):**
-  ```json
-  [
-    {
-      "id": 1,
-      "objetivo": "Ganho de massa muscular nos braços",
-      "nivel": "intermediario",
-      "treino_gerado": "...",
-      "criado_em": "2026-05-28T18:38:00Z"
-    }
-  ]
-  ```
-
-### 4. Obter um Treino Específico por ID
-* **Método:** `GET`
-* **Rota:** `/api/v1/treino/<id>`
-* **Cabeçalhos requeridos (se `API_AUTH_KEY` estiver configurado):** `X-API-KEY: <sua_chave>`
-
-### 5. Deletar um Treino por ID
-* **Método:** `DELETE`
-* **Rota:** `/api/v1/treino/<id>`
-* **Cabeçalhos requeridos (se `API_AUTH_KEY` estiver configurado):** `X-API-KEY: <sua_chave>`
+| Método | Endpoint | Descrição | Requer X-API-KEY |
+| :--- | :--- | :--- | :---: |
+| `GET` | `/` | Informações e status da API | Não |
+| `GET` | `/api/v1/health` | Health Check do servidor | Não |
+| `POST` | `/api/v1/treino` | Gera treino via IA Gemini e salva no DB | Sim (se configurado) |
+| `GET` | `/api/v1/treinos` | Lista todos os treinos armazenados | Sim (se configurado) |
+| `GET` | `/api/v1/treino/<id>` | Busca um treino específico por ID | Sim (se configurado) |
+| `DELETE` | `/api/v1/treino/<id>` | Remove um treino do banco por ID | Sim (se configurado) |
 
 ---
 
-## 🔌 Como Consumir esta API em Outros Projetos (Frontend / Frontend Web)
+### Exemplos de Requisições (cURL)
 
-Como o CORS está configurado para liberar qualquer origem (`*`), você pode consumir a API diretamente via **JavaScript/TypeScript** no seu frontend de outro projeto:
+#### 1. Criar um Novo Treino (POST)
+```bash
+curl -X POST http://localhost:5000/api/v1/treino \
+  -H "Content-Type: application/json" \
+  -H "X-API-KEY: sua_chave_se_configurada" \
+  -d '{
+    "objetivo": "Hipertrofia de peitoral e tríceps",
+    "nivel": "intermediario"
+  }'
+```
 
-### Exemplo em JavaScript (usando `fetch`):
-
-```javascript
-// Exemplo de como gerar um novo treino
-async function gerarTreino() {
-  const url = 'http://localhost:5000/api/v1/treino';
-  const payload = {
-    objetivo: 'Definição abdominal e cardio',
-    nivel: 'iniciante'
-  };
-
-  try {
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        // 'X-API-KEY': 'sua_chave_se_estiver_habilitada'
-      },
-      body: JSON.stringify(payload)
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      console.error('Erro na API:', errorData);
-      return;
-    }
-
-    const treino = await response.json();
-    console.log('Treino gerado com sucesso:', treino);
-    alert(`Treino ID: ${treino.id}\n\n${treino.treino_gerado}`);
-  } catch (error) {
-    console.error('Erro de conexão:', error);
-  }
+**Exemplo de Resposta (HTTP 201 Created):**
+```json
+{
+  "id": 1,
+  "objetivo": "Hipertrofia de peitoral e tríceps",
+  "nivel": "intermediario",
+  "treino_gerado": "### Treino de Peitoral e Tríceps - Nível Intermediário\n\n1. **Supino Reto com Barra** - 4 séries de 10 repetições\n2. **Supino Inclinado com Halteres** - 3 séries de 12 repetições\n3. **Tríceps Teste** - 3 séries de 12 repetições",
+  "criado_em": "2026-09-12T18:30:00Z"
 }
 ```
+
+#### 2. Listar Todos os Treinos (GET)
+```bash
+curl -X GET http://localhost:5000/api/v1/treinos \
+  -H "X-API-KEY: sua_chave_se_configurada"
+```
+
+#### 3. Obter Treino por ID (GET)
+```bash
+curl -X GET http://localhost:5000/api/v1/treino/1 \
+  -H "X-API-KEY: sua_chave_se_configurada"
+```
+
+#### 4. Deletar Treino por ID (DELETE)
+```bash
+curl -X DELETE http://localhost:5000/api/v1/treino/1 \
+  -H "X-API-KEY: sua_chave_se_configurada"
+```
+
+---
+
+## 📜 Licença
+
+Este projeto está sob a licença [MIT](LICENSE).
+
+---
+
+<p align="center">
+  Desenvolvido por <strong>Caio Souza</strong> 🚀
+</p>
