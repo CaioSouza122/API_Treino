@@ -30,6 +30,14 @@ jobs:
         # Settings (line length, complexity, excludes) live in .flake8
         run: flake8 . --count --show-source --statistics
 
+      - name: Migrations match the models
+        env:
+          DATABASE_URL: "sqlite:///ci-migrations.db"
+          API_AUTH_KEY: "mock_ci_auth_key"
+        run: |
+          alembic upgrade head
+          alembic check
+
       - name: Run Test Suite with Pytest
         env:
           GEMINI_API_KEY: "mock_ci_gemini_key"

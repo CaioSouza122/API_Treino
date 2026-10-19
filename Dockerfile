@@ -18,5 +18,5 @@ ENV PATH="/venv/bin:$PATH"
 # Expose Flask default port
 EXPOSE 5000
 
-# Run production server using Gunicorn (bind, workers and timeout come from gunicorn.conf.py)
-CMD ["gunicorn", "app:app"]
+# Apply migrations, then run Gunicorn (bind, workers and timeout come from gunicorn.conf.py)
+CMD ["sh", "-c", "alembic upgrade head && gunicorn app:app"]
