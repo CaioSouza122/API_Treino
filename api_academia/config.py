@@ -7,6 +7,20 @@ ENV_PATH = os.path.join(BASE_DIR, '.env')
 load_dotenv(dotenv_path=ENV_PATH, encoding='latin-1')
 
 
+def normalizar_database_url(url):
+    """Pins the psycopg2 driver for Postgres URLs.
+
+    SQLAlchemy 2.1 made plain 'postgresql://' use psycopg (v3), which is not installed;
+    Render/Heroku also pass 'postgres://', which SQLAlchemy rejects.
+    """
+    if not url:
+        return None
+    for prefixo in ("postgres://", "postgresql://"):
+        if url.startswith(prefixo):
+            return "postgresql+psycopg2://" + url[len(prefixo):]
+    return url
+
+
 class Config:
     DEBUG = os.getenv('FLASK_DEBUG', 'False').lower() == 'true'
     TESTING = os.getenv('FLASK_TESTING', 'False').lower() == 'true'
@@ -25,15 +39,7 @@ class Config:
     # or PostgreSQL if provided in the environment variables
     DEFAULT_DB_PATH = os.path.join(BASE_DIR, 'api_academia.db')
 
-    raw_db_url = os.getenv('DATABASE_URL')
-
-    # Render and Heroku sometimes pass 'postgres://', which SQLAlchemy needs as 'postgresql://'
-    if raw_db_url:
-        if raw_db_url.startswith("postgres://"):
-            raw_db_url = raw_db_url.replace("postgres://", "postgresql://", 1)
-        SQLALCHEMY_DATABASE_URI = raw_db_url
-    else:
-        SQLALCHEMY_DATABASE_URI = f'sqlite:///{DEFAULT_DB_PATH}'
+    SQLALCHEMY_DATABASE_URI = normalizar_database_url(os.getenv('DATABASE_URL')) or f'sqlite:///{DEFAULT_DB_PATH}'
 
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     # Neon closes idle connections: test each pooled connection before reuse
