@@ -11,6 +11,18 @@ jobs:
     name: Build, Lint & Test
     runs-on: ubuntu-latest
 
+    # Real Postgres (same engine as Neon) to check the migrations
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: ci
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U ci" --health-interval 5s --health-timeout 5s --health-retries 10
+
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -30,13 +42,17 @@ jobs:
         # Settings (line length, complexity, excludes) live in .flake8
         run: flake8 . --count --show-source --statistics
 
-      - name: Migrations match the models
+      - name: Migrations match the models (SQLite and Postgres)
         env:
-          DATABASE_URL: "sqlite:///ci-migrations.db"
           API_AUTH_KEY: "mock_ci_auth_key"
         run: |
+          DATABASE_URL="sqlite:///ci-migrations.db" alembic upgrade head
+          DATABASE_URL="sqlite:///ci-migrations.db" alembic check
+          export DATABASE_URL="postgresql://ci:ci@localhost:5432/ci"
           alembic upgrade head
+          alembic upgrade head   # idempotent: second run is a no-op
           alembic check
+          alembic current
 
       - name: Run Test Suite with Pytest
         env:
