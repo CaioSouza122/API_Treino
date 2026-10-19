@@ -76,24 +76,55 @@ class _ErroGemini(Exception):
         self.code = code
 
 
-def test_gemini_temporariamente_indisponivel_tenta_de_novo(app, mocker):
-    """503 'high demand' is transient: retry instead of failing the user's request."""
+def _gemini_falso(mocker, efeitos):
     mocker.patch('api_academia.services.time.sleep')
     fake_client = mocker.patch('api_academia.services.genai.Client')
     gerar = fake_client.return_value.models.generate_content
-    resposta_ok = mocker.Mock(text="Treino A: Peito")
-    gerar.side_effect = [_ErroGemini(503), _ErroGemini(429), resposta_ok]
+    gerar.side_effect = efeitos
+    return gerar
+
+
+def _modelos_chamados(gerar):
+    return [chamada.kwargs['model'] for chamada in gerar.call_args_list]
+
+
+def test_gemini_temporariamente_indisponivel_tenta_de_novo(app, mocker):
+    """503 'high demand' is transient: retry the main model before giving up."""
+    gerar = _gemini_falso(mocker, [_ErroGemini(503), mocker.Mock(text="Treino A: Peito")])
 
     assert generate_treino(objetivo="hipertrofia", nivel="iniciante") == "Treino A: Peito"
-    assert gerar.call_count == 3
+    assert _modelos_chamados(gerar) == ["gemini-2.5-flash", "gemini-2.5-flash"]
+
+
+def test_modelo_principal_sobrecarregado_usa_modelo_reserva(app, mocker):
+    gerar = _gemini_falso(
+        mocker, [_ErroGemini(503), _ErroGemini(429), mocker.Mock(text="Treino A: Costas")]
+    )
+
+    assert generate_treino(objetivo="hipertrofia", nivel="iniciante") == "Treino A: Costas"
+    assert _modelos_chamados(gerar) == ["gemini-2.5-flash", "gemini-2.5-flash", "gemini-3.5-flash-lite"]
+
+
+def test_todos_os_modelos_sobrecarregados_falha(app, mocker):
+    gerar = _gemini_falso(mocker, _ErroGemini(503))
+
+    with pytest.raises(RuntimeError):
+        generate_treino(objetivo="hipertrofia", nivel="iniciante")
+    assert _modelos_chamados(gerar) == ["gemini-2.5-flash"] * 2 + ["gemini-3.5-flash-lite"] * 2
 
 
 def test_erro_permanente_do_gemini_nao_repete(app, mocker):
-    mocker.patch('api_academia.services.time.sleep')
-    fake_client = mocker.patch('api_academia.services.genai.Client')
-    gerar = fake_client.return_value.models.generate_content
-    gerar.side_effect = _ErroGemini(400)
+    """Bad key / bad request: another model would fail the same way, so fail fast."""
+    gerar = _gemini_falso(mocker, _ErroGemini(400))
 
     with pytest.raises(RuntimeError):
         generate_treino(objetivo="hipertrofia", nivel="iniciante")
     assert gerar.call_count == 1
+
+
+def test_lista_de_modelos_configuravel_por_variavel(app, mocker):
+    app.config['GEMINI_MODELOS'] = "modelo-a, modelo-b"
+    gerar = _gemini_falso(mocker, [_ErroGemini(503), _ErroGemini(503), mocker.Mock(text="Treino A: Pernas")])
+
+    assert generate_treino(objetivo="hipertrofia", nivel="iniciante") == "Treino A: Pernas"
+    assert _modelos_chamados(gerar) == ["modelo-a", "modelo-a", "modelo-b"]
