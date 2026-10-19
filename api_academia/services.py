@@ -4,6 +4,7 @@ This module isolates calls to the official Google GenAI SDK (Gemini 2.5 Flash),
 ensuring clean separation of concerns from HTTP controllers and routes.
 """
 
+import time
 from typing import Any, Dict, Optional
 
 from flask import current_app
@@ -69,14 +70,23 @@ def generate_treino(objetivo: str, nivel: str, perfil: Optional[Dict[str, Any]] 
         f"{_formato_resposta(perfil or {})}"
     )
 
-    try:
-        response = client.models.generate_content(
-            model='gemini-2.5-flash',
-            contents=prompt_ia,
-        )
-    except Exception as exc:
-        current_app.logger.error(f"Erro na integração com Google Gemini API: {exc}")
-        raise RuntimeError(f"Falha na comunicação com o serviço de IA: {str(exc)}") from exc
+    # 429/500/503 ("high demand") are transient on Gemini: retry with a short backoff
+    esperas = (2, 4)
+    for tentativa in range(len(esperas) + 1):
+        try:
+            response = client.models.generate_content(
+                model='gemini-2.5-flash',
+                contents=prompt_ia,
+            )
+            break
+        except Exception as exc:
+            temporario = getattr(exc, 'code', None) in (429, 500, 503)
+            if temporario and tentativa < len(esperas):
+                current_app.logger.warning(f"Gemini indisponível ({exc}); nova tentativa em {esperas[tentativa]}s")
+                time.sleep(esperas[tentativa])
+                continue
+            current_app.logger.error(f"Erro na integração com Google Gemini API: {exc}")
+            raise RuntimeError(f"Falha na comunicação com o serviço de IA: {str(exc)}") from exc
 
     if not response or not getattr(response, 'text', None):
         raise ValueError("O modelo do Gemini não retornou nenhum conteúdo válido.")

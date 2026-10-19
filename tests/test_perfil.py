@@ -2,6 +2,8 @@
 """
 
 import json
+
+import pytest
 from flask.testing import FlaskClient
 
 from api_academia.services import generate_treino
@@ -66,3 +68,32 @@ def test_prompt_inclui_perfil(app, mocker):
         assert trecho in prompt
     assert "exatamente 3 treinos" in prompt
     assert "'Treino A: <grupos musculares>'" in prompt
+
+
+class _ErroGemini(Exception):
+    def __init__(self, code):
+        super().__init__(f"{code} erro simulado")
+        self.code = code
+
+
+def test_gemini_temporariamente_indisponivel_tenta_de_novo(app, mocker):
+    """503 'high demand' is transient: retry instead of failing the user's request."""
+    mocker.patch('api_academia.services.time.sleep')
+    fake_client = mocker.patch('api_academia.services.genai.Client')
+    gerar = fake_client.return_value.models.generate_content
+    resposta_ok = mocker.Mock(text="Treino A: Peito")
+    gerar.side_effect = [_ErroGemini(503), _ErroGemini(429), resposta_ok]
+
+    assert generate_treino(objetivo="hipertrofia", nivel="iniciante") == "Treino A: Peito"
+    assert gerar.call_count == 3
+
+
+def test_erro_permanente_do_gemini_nao_repete(app, mocker):
+    mocker.patch('api_academia.services.time.sleep')
+    fake_client = mocker.patch('api_academia.services.genai.Client')
+    gerar = fake_client.return_value.models.generate_content
+    gerar.side_effect = _ErroGemini(400)
+
+    with pytest.raises(RuntimeError):
+        generate_treino(objetivo="hipertrofia", nivel="iniciante")
+    assert gerar.call_count == 1
