@@ -1,15 +1,10 @@
-Flask>=3.0.0
-Flask-SQLAlchemy>=3.1.0
-Flask-CORS>=4.0.0
-marshmallow>=3.20.0
-google-genai>=0.1.0
-python-dotenv>=1.0.0
-psycopg2-binary>=2.9.0
-Flask-Limiter>=3.5.0
-gunicorn>=21.2.0
-
-# Development & Testing Dependencies
-pytest>=8.0.0
-pytest-mock>=3.12.0
-pytest-cov>=4.1.0
-flake8>=7.0.0
+# Production dependencies (tested versions; upper bound = next major)
+Flask>=3.1,<4
+Flask-SQLAlchemy>=3.1,<4
+Flask-CORS>=6.0,<7
+marshmallow>=4.0,<5
+google-genai>=2.0,<3
+python-dotenv>=1.0,<2
+psycopg2-binary>=2.9,<3
+Flask-Limiter>=4.0,<5
+gunicorn>=23.0,<27

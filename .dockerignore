@@ -1,0 +1,11 @@
+# Never bake secrets or local state into the image
+.env
+.venv/
+.git/
+.github/
+__pycache__/
+.pytest_cache/
+.coverage
+htmlcov/
+*.db
+tests/

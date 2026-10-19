@@ -17,7 +17,7 @@ help:
 
 install:
 	$(PIP) install --upgrade pip
-	$(PIP) install -r requirements.txt
+	$(PIP) install -r requirements-dev.txt
 
 run:
 	$(PYTHON) app.py
@@ -26,7 +26,7 @@ test:
 	$(PYTEST) tests/
 
 lint:
-	$(FLAKE8) . --count --select=E9,F63,F7,F82 --show-source --statistics
+	$(FLAKE8) . --count --show-source --statistics
 
 docker-build:
 	docker build -t api-academia:latest .
