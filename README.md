@@ -1,241 +1,232 @@
-# 🏋️ API de Treinos com IA e Persistência de Dados
+# 🏋️ API_Treino — API de Treinos com IA
 
 <p align="center">
   <img src="https://img.shields.io/badge/Python-3.11-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python 3.11" />
   <img src="https://img.shields.io/badge/Flask-3.1-000000?style=for-the-badge&logo=flask&logoColor=white" alt="Flask" />
   <img src="https://img.shields.io/badge/Google_Gemini-2.5_Flash-8E75B2?style=for-the-badge&logo=googlecloud&logoColor=white" alt="Google Gemini 2.5 Flash" />
-  <img src="https://img.shields.io/badge/Docker-Ready-2496ED?style=for-the-badge&logo=docker&logoColor=white" alt="Docker Ready" />
-  <img src="https://img.shields.io/badge/Pytest-100%25_Passing-0A9EDC?style=for-the-badge&logo=pytest&logoColor=white" alt="Pytest" />
+  <img src="https://img.shields.io/badge/PostgreSQL-Neon-4169E1?style=for-the-badge&logo=postgresql&logoColor=white" alt="Neon" />
   <img src="https://img.shields.io/badge/License-MIT-green.svg?style=for-the-badge" alt="License MIT" />
 </p>
 
----
+API REST em **Flask** que gera planos de treino com o **Google Gemini 2.5 Flash** e guarda cada
+plano gerado em **PostgreSQL** (Neon) ou SQLite local.
 
-## 📌 Visão Geral do Projeto
+É o serviço de IA do app **[HIPERTROF.IA](https://github.com/CaioSouza122/treino-app)**: o backend
+FastAPI do app chama `POST /api/v1/treino` com o perfil do usuário e transforma o texto devolvido
+em dias de treino (A, B, C...). A API é pensada para ser chamada **de servidor para servidor**,
+autenticada por chave.
 
-A **API de Treinos com IA** é uma solução backend robusta, escalável e pronta para produção desenvolvida em **Python** utilizando **Flask** e integrada ao modelo de inteligência artificial de última geração **Google Gemini 2.5 Flash**.
-
-A aplicação permite a geração dinâmica de planos de treino personalizados com base em objetivos fitness e níveis de experiência do usuário, armazenando os treinos gerados em um banco de dados relacional (**SQLite** por padrão ou **PostgreSQL** para produção).
-
----
-
-## 🏗️ Arquitetura do Sistema
-
-A aplicação adota o padrão **Application Factory** e arquitetura em camadas (**Clean Architecture / Layered Architecture**), separando claramente rotas (controllers), modelos (ORM), validações (schemas DTO) e serviços externos de IA.
-
-```mermaid
-graph TD
-    Client[📱 Cliente / Frontend / Postman] -->|HTTP REST Request| AuthMiddleware[🛡️ X-API-KEY Auth Middleware]
-    AuthMiddleware -->|Valido| Limiter[⏱️ Rate Limiter - Flask-Limiter]
-    Limiter -->|Dentro do limite| Routes[🚦 API Blueprint Routes - /api/v1/]
-    
-    Routes -->|1. Valida Payload| Schema[📋 Marshmallow DTO Schema]
-    Routes -->|2. Executa Lógica| Service[🧠 Gemini Service Layer]
-    Service -->|3. Prompt HTTP Request| GeminiAPI[☁️ Google Gemini 2.5 Flash API]
-    GeminiAPI -->|4. Treino Gerado| Service
-    
-    Service -->|5. Retorna Texto| Routes
-    Routes -->|6. Persiste Dados| ORM[🗄️ SQLAlchemy ORM - Treino Model]
-    ORM -->|7. Salva Registro| DB[(💾 SQLite / PostgreSQL)]
-    Routes -->|8. Resposta JSON HTTP 201| Client
+```
+App mobile → backend FastAPI (treino-app) → POST /api/v1/treino (esta API) → Gemini
+                                                    ↓
+                                            Neon / SQLite (tabela treinos)
 ```
 
 ---
 
-## ✨ Destaques de Engenharia e Boas Práticas
+## Stack
 
-- **Padrão Application Factory**: Instanciação limpa e configurável do Flask app para desenvolvimento, testes e produção.
-- **Validação Estrita de DTOs**: Garantida pelo **Marshmallow**, impedindo requisições malformadas antes de processar a IA.
-- **Proteção contra Abuso (Rate Limiting)**: Limite configurável por IP (padrão 5 req/min no endpoint de IA) via **Flask-Limiter**.
-- **Autenticação Flexível**: Decorator `@require_api_key` que valida o cabeçalho `X-API-KEY` (desativável em desenvolvimento local).
-- **CORS Habilitado**: Configuração nativa via **Flask-CORS** para integrar com frontends React, Next.js, Vue ou aplicativos mobile.
-- **Suíte de Testes Automatizados**: Cobertura Pytest completa com **mocks** do serviço de IA (sem dependência de cota ou chamadas externas no CI).
-- **Integração Contínua (CI/CD)**: Pipeline no **GitHub Actions** automatizando execução de testes e linter **Flake8**.
-- **Containerização com Docker**: Imagem leve baseada em `python:3.11-slim` utilizando **Gunicorn** como servidor WSGI de produção.
+| Camada | Tecnologia |
+| --- | --- |
+| Web | Flask 3, Gunicorn |
+| Validação | Marshmallow 4 |
+| Banco | SQLAlchemy (Flask-SQLAlchemy) + Alembic · PostgreSQL (Neon) ou SQLite |
+| IA | `google-genai` (Gemini 2.5 Flash) |
+| Segurança | Chave `X-API-KEY`, Flask-Limiter, Flask-CORS |
+| Qualidade | Pytest, pytest-mock, Flake8, GitHub Actions |
 
 ---
 
-## 📂 Estrutura do Repositório
+## Estrutura
 
 ```text
 API_Treino/
-├── .github/
-│   ├── ISSUE_TEMPLATE/       # Templates para reporte de bugs e sugestões
-│   ├── PULL_REQUEST_TEMPLATE.md
-│   └── workflows/
-│       └── ci.yml            # Pipeline do GitHub Actions (Lint & Pytest)
-├── api_academia/             # Pacote principal da aplicação
-│   ├── __init__.py           # Application Factory e registro de extensões
-│   ├── auth.py               # Decorator de segurança X-API-KEY
-│   ├── config.py             # Carregamento de variáveis de ambiente
-│   ├── database.py           # Instância singleton do SQLAlchemy
-│   ├── limiter.py            # Instância do Flask-Limiter
-│   ├── models.py             # Modelo SQLAlchemy (Entidade Treino)
-│   ├── routes.py             # Controllers e Endpoints RESTful (/api/v1)
-│   ├── schemas.py            # Schemas Marshmallow de validação/serialização
-│   └── services.py           # Camada de Serviço (Integração Google GenAI)
-├── tests/                    # Suíte de testes automatizados com Pytest
-│   ├── conftest.py           # Fixtures do Pytest e mock da IA Gemini
-│   ├── test_auth_and_limiter.py
-│   ├── test_health.py
-│   └── test_treinos.py
-├── .env.example              # Modelo de variáveis de ambiente
-├── .gitignore                # Arquivos ignorados pelo Git
-├── app.py                    # Ponto de entrada WSGI / Execução local
-├── CONTRIBUTING.md           # Guia de contribuição e convenção de commits
-├── Dockerfile                # Configuração para deploy em container
-├── LICENSE                   # Licença MIT
-├── Makefile                  # Atalhos de comandos (install, test, run, lint)
-├── pyproject.toml            # Configuração unificada do Pytest e Flake8
-├── README.md                 # Documentação principal do projeto
-├── requirements.txt          # Dependências do projeto e de testes
-└── run_tests.py              # Script executável para rodar a suíte de testes
+├── api_academia/          # Pacote da aplicação
+│   ├── __init__.py        # create_app(): config, CORS, limiter, banco, rotas
+│   ├── auth.py            # @require_api_key (cabeçalho X-API-KEY)
+│   ├── config.py          # Variáveis de ambiente
+│   ├── database.py        # Instância do SQLAlchemy
+│   ├── limiter.py         # Limite de requisições por chave de API
+│   ├── models.py          # Modelo Treino
+│   ├── routes.py          # Endpoints /api/v1
+│   ├── schemas.py         # Validação de entrada e formato de saída
+│   └── services.py        # Prompt e chamada ao Gemini
+├── migrations/            # Migrations do banco (Alembic)
+├── tests/                 # Testes (Gemini sempre simulado)
+├── app.py                 # Ponto de entrada (gunicorn app:app)
+├── gunicorn.conf.py       # Workers, threads, timeout e porta de produção
+├── render.yaml            # Blueprint de deploy no Render
+├── Dockerfile             # Imagem de produção (opcional)
+├── requirements.txt       # Dependências de produção
+└── requirements-dev.txt   # + ferramentas de teste e lint
 ```
 
 ---
 
-## 🚀 Como Executar o Projeto
+## Rodando localmente
 
-### 1. Pré-requisitos
-- **Python 3.11+**
-- **Git**
-- **Docker** *(opcional para execução em container)*
-
----
-
-### 2. Instalação e Execução Local
+Pré-requisitos: **Python 3.11+** e Git.
 
 ```bash
-# 1. Clone o repositório
-git clone https://github.com/SeuUsuario/API_Treino.git
+git clone https://github.com/CaioSouza122/API_Treino.git
 cd API_Treino
 
-# 2. Crie e ative o ambiente virtual
 python -m venv .venv
+.\.venv\Scripts\Activate.ps1     # Windows (PowerShell)
+source .venv/bin/activate        # Linux / Mac
 
-# No Windows (PowerShell):
-.\.venv\Scripts\Activate.ps1
-# No Linux/Mac:
-source .venv/bin/activate
+pip install -r requirements-dev.txt
+cp .env.example .env             # preencha GEMINI_API_KEY
 
-# 3. Instale as dependências
-pip install -r requirements.txt
-# Ou utilizando o Makefile:
-make install
-
-# 4. Configure o arquivo de variáveis de ambiente
-cp .env.example .env
+alembic upgrade head             # cria/atualiza as tabelas
+python app.py                    # http://localhost:5000
 ```
 
-Edite o arquivo `.env` e preencha sua chave do Google Gemini:
-```env
-GEMINI_API_KEY=sua_chave_obtida_no_google_ai_studio
-```
+Com `FLASK_DEBUG=True` (como no `.env.example`), a chave `API_AUTH_KEY` é opcional. Em produção
+ela é **obrigatória**: sem ela a API não inicia.
 
-Inicie o servidor de desenvolvimento:
-```bash
-python app.py
-# Ou via Makefile:
-make run
-```
-A API estará acessível em: `http://localhost:5000`
+### Variáveis de ambiente
+
+| Variável | Obrigatória | Descrição |
+| --- | --- | --- |
+| `GEMINI_API_KEY` | Sim | Chave do Google AI Studio. |
+| `API_AUTH_KEY` | Em produção | Valor esperado no cabeçalho `X-API-KEY`. |
+| `DATABASE_URL` | Não | Postgres do Neon. Vazio = SQLite local `api_academia.db`. |
+| `FLASK_DEBUG` | Não | `True` só em desenvolvimento. Padrão: `False`. |
+| `ALLOWED_ORIGINS` | Não | Origens de navegador para CORS, separadas por vírgula. Padrão: nenhuma. |
+| `PORT` | Não | Porta do Gunicorn (o Render define). Padrão: `5000`. |
+| `WEB_CONCURRENCY` / `GUNICORN_THREADS` | Não | Workers e threads do Gunicorn. Padrão: 2 e 4. |
+
+### Comandos
+
+| Comando | O que faz |
+| --- | --- |
+| `make install` | Instala dependências de produção e desenvolvimento |
+| `make run` | Sobe o servidor de desenvolvimento |
+| `make test` | Roda os testes (`pytest tests/`) |
+| `make lint` | Roda o Flake8 (config em `.flake8`) |
+| `alembic upgrade head` | Aplica as migrations pendentes |
+| `alembic revision --autogenerate -m "..."` | Cria uma migration a partir dos models |
 
 ---
 
-### 3. Execução com Docker
+## Endpoints
 
-```bash
-# Construir a imagem Docker
-docker build -t api-academia:latest .
+Prefixo `/api/v1`. Todos, exceto `/` e `/health`, exigem o cabeçalho `X-API-KEY`.
 
-# Rodar o container na porta 5000
-docker run -p 5000:5000 --env-file .env api-academia:latest
-```
+| Método | Rota | Descrição |
+| --- | --- | --- |
+| `GET` | `/` | Informações da API |
+| `GET` | `/api/v1/health` | Health check (sem limite de requisições) |
+| `POST` | `/api/v1/treino` | Gera um treino com o Gemini e salva |
+| `GET` | `/api/v1/treinos?limit=50` | Treinos mais recentes (máx. 200) |
+| `GET` | `/api/v1/treino/<id>` | Um treino por ID |
+| `DELETE` | `/api/v1/treino/<id>` | Remove um treino |
 
----
+### `POST /api/v1/treino`
 
-## 🧪 Testes Automatizados e Qualidade de Código
-
-O projeto conta com suíte de testes utilizando **Pytest** e **pytest-mock**:
-
-```bash
-# Executar todos os testes com relatório de cobertura
-pytest --cov=api_academia tests/
-
-# Ou utilizando o script utilitário:
-python run_tests.py
-
-# Verificar padrão de código com Flake8
-flake8 .
-```
-
----
-
-## 📡 Documentação dos Endpoints RESTful
-
-Todos os endpoints estão sob o prefixo `/api/v1`.
-
-| Método | Endpoint | Descrição | Requer X-API-KEY |
-| :--- | :--- | :--- | :---: |
-| `GET` | `/` | Informações e status da API | Não |
-| `GET` | `/api/v1/health` | Health Check do servidor | Não |
-| `POST` | `/api/v1/treino` | Gera treino via IA Gemini e salva no DB | Sim (se configurado) |
-| `GET` | `/api/v1/treinos` | Lista todos os treinos armazenados | Sim (se configurado) |
-| `GET` | `/api/v1/treino/<id>` | Busca um treino específico por ID | Sim (se configurado) |
-| `DELETE` | `/api/v1/treino/<id>` | Remove um treino do banco por ID | Sim (se configurado) |
-
----
-
-### Exemplos de Requisições (cURL)
-
-#### 1. Criar um Novo Treino (POST)
 ```bash
 curl -X POST http://localhost:5000/api/v1/treino \
   -H "Content-Type: application/json" \
-  -H "X-API-KEY: sua_chave_se_configurada" \
+  -H "X-API-KEY: sua_chave" \
   -d '{
-    "objetivo": "Hipertrofia de peitoral e tríceps",
-    "nivel": "intermediario"
+    "objetivo": "hipertrofia",
+    "nivel": "intermediario",
+    "altura": 178,
+    "peso": 80,
+    "idade": 28,
+    "vezes_por_semana": 4,
+    "tempo": 60
   }'
 ```
 
-**Exemplo de Resposta (HTTP 201 Created):**
+| Campo | Tipo | Regra |
+| --- | --- | --- |
+| `objetivo` | texto | Obrigatório, 3 a 255 caracteres |
+| `nivel` | texto | `iniciante`, `intermediario` ou `avancado` (padrão `iniciante`) |
+| `altura` | número | Opcional, 1 a 250 (cm) |
+| `peso` | número | Opcional, 20 a 400 kg |
+| `idade` | inteiro | Opcional, 10 a 100 |
+| `vezes_por_semana` | inteiro | Opcional, 1 a 7 — define quantos treinos o plano terá |
+| `tempo` | inteiro | Opcional, 10 a 300 minutos por sessão |
+
+Campos desconhecidos são recusados. O prompt pede ao Gemini um formato fixo, sem introdução,
+com cada dia começando por `Treino A: <grupos musculares>`.
+
+Resposta `201`:
+
 ```json
 {
   "id": 1,
-  "objetivo": "Hipertrofia de peitoral e tríceps",
+  "objetivo": "hipertrofia",
   "nivel": "intermediario",
-  "treino_gerado": "### Treino de Peitoral e Tríceps - Nível Intermediário\n\n1. **Supino Reto com Barra** - 4 séries de 10 repetições\n2. **Supino Inclinado com Halteres** - 3 séries de 12 repetições\n3. **Tríceps Teste** - 3 séries de 12 repetições",
-  "criado_em": "2026-09-12T18:30:00Z"
+  "treino_gerado": "Treino A: Peito e Tríceps\n- Supino reto — 4x8-10\n...",
+  "criado_em": "2026-10-19T18:30:00Z"
 }
 ```
 
-#### 2. Listar Todos os Treinos (GET)
-```bash
-curl -X GET http://localhost:5000/api/v1/treinos \
-  -H "X-API-KEY: sua_chave_se_configurada"
-```
+### Erros
 
-#### 3. Obter Treino por ID (GET)
-```bash
-curl -X GET http://localhost:5000/api/v1/treino/1 \
-  -H "X-API-KEY: sua_chave_se_configurada"
-```
+| Status | Quando | Corpo |
+| --- | --- | --- |
+| `400` | Entrada inválida | `{"erros_validacao": {"campo": ["mensagem"]}}` |
+| `401` | `X-API-KEY` ausente ou errada | `{"erro": "...", "mensagem": "..."}` |
+| `429` | Limite de requisições atingido | `{"erro": "...", "mensagem": "...", "detalhe": "..."}` |
+| `502` | O Gemini falhou | `{"erro": "O serviço de IA está indisponível no momento."}` |
+| `500` | Erro interno | `{"erro": "..."}` — o detalhe fica só no log do servidor |
 
-#### 4. Deletar Treino por ID (DELETE)
-```bash
-curl -X DELETE http://localhost:5000/api/v1/treino/1 \
-  -H "X-API-KEY: sua_chave_se_configurada"
-```
+### Limites de requisições
+
+Contados **por chave de API** (ou por IP quando não há chave): 600 por hora no geral e
+30 por minuto em `POST /treino`. Por trás do proxy do Render, todos os pedidos do backend chegam
+do mesmo IP; contar por IP faria todos os usuários do app dividirem uma cota mínima.
 
 ---
 
-## 📜 Licença
+## Testes e qualidade
 
-Este projeto está sob a licença [MIT](LICENSE).
+```bash
+make test     # 18 testes; o Gemini é sempre simulado (sem custo e sem rede)
+make lint     # Flake8
+```
+
+O CI (GitHub Actions) roda o lint, confere se as migrations batem com os models e executa os
+testes em todo push e pull request.
 
 ---
 
-<p align="center">
-  Desenvolvido por <strong>Caio Souza</strong> 🚀
-</p>
+## Deploy no Render + Neon
+
+1. **Neon:** crie um projeto e copie a *connection string* (`postgresql://...?sslmode=require`).
+2. **Render:** *New → Blueprint* apontando para este repositório (usa o `render.yaml`), ou crie um
+   *Web Service* Python com:
+   - Build command: `pip install -r requirements.txt`
+   - Start command: `alembic upgrade head && gunicorn app:app`
+   - Health check path: `/api/v1/health`
+3. Preencha no painel: `GEMINI_API_KEY`, `API_AUTH_KEY` (gere uma chave forte), `DATABASE_URL`
+   (Neon) e `FLASK_DEBUG=False`. Deixe `ALLOWED_ORIGINS` vazio.
+4. No backend do HIPERTROF.IA, use o mesmo valor de `API_AUTH_KEY` em `TREINO_API_KEY`.
+
+A migration inicial só cria a tabela `treinos` se ela não existir, então um banco que já estava em
+uso é adotado sem perder dados. O controle de versão fica na tabela `alembic_version_api_treino`,
+separada da tabela do backend caso os dois usem o mesmo banco Neon.
+
+> No plano gratuito o Render desliga o serviço quando fica parado. A primeira chamada depois disso
+> leva ~20s para acordar o serviço, e o Gemini leva outros ~20s. O Gunicorn tem timeout de 120s.
+
+---
+
+## Segurança
+
+- Segredos só em variáveis de ambiente (`.env` local, painel do Render em produção). O `.env` está
+  no `.gitignore` e no `.dockerignore`.
+- A chave é comparada em tempo constante (`hmac.compare_digest`).
+- Respostas de erro não incluem texto de exceções.
+- Acesso ao banco só pelo ORM (sem SQL montado com texto).
+- CORS desligado por padrão.
+
+---
+
+## Licença
+
+[MIT](LICENSE) · Desenvolvido por **Caio Souza**
