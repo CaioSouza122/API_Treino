@@ -64,3 +64,5 @@ def test_prompt_inclui_perfil(app, mocker):
     prompt = fake_client.return_value.models.generate_content.call_args.kwargs['contents']
     for trecho in ("180", "80", "25 anos", "3 vezes por semana", "45 minutos"):
         assert trecho in prompt
+    assert "exatamente 3 treinos" in prompt
+    assert "'Treino A: <grupos musculares>'" in prompt

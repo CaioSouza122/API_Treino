@@ -28,6 +28,7 @@ def handle_rate_limit_error(e: RateLimitExceeded) -> Tuple[Response, int]:
 
 
 @api_blueprint.route('/health', methods=['GET'])
+@limiter.exempt
 def health() -> Tuple[Response, int]:
     """Health check endpoint to verify backend operational readiness."""
     return jsonify({
@@ -37,7 +38,7 @@ def health() -> Tuple[Response, int]:
 
 
 @api_blueprint.route('/treino', methods=['POST'])
-@limiter.limit("5 per minute", error_message="Limite de 5 requisições de treinos por minuto atingido.")
+@limiter.limit("30 per minute", error_message="Limite de 30 requisições de treinos por minuto atingido.")
 @require_api_key
 def criar_treino() -> Tuple[Response, int]:
     """Generates a new workout plan via Gemini AI and persists it in the database.
@@ -78,29 +79,33 @@ def criar_treino() -> Tuple[Response, int]:
         schema_resp = TreinoResponseSchema()
         return jsonify(schema_resp.dump(novo_treino)), 201
 
+    # Details go to the log only: exception text can expose hosts, tables or queries
     except ValueError as ve:
         db.session.rollback()
-        return jsonify({'erro': str(ve)}), 400
+        current_app.logger.warning(f"Treino não gerado: {ve}")
+        return jsonify({'erro': 'Não foi possível gerar o treino com os dados enviados.'}), 400
     except RuntimeError as re:
         db.session.rollback()
-        return jsonify({'erro': str(re)}), 502
-    except Exception as e:
+        current_app.logger.error(f"Falha no serviço de IA: {re}")
+        return jsonify({'erro': 'O serviço de IA está indisponível no momento.'}), 502
+    except Exception:
         db.session.rollback()
-        current_app.logger.error(f"Erro inesperado ao criar treino: {str(e)}")
-        return jsonify({'erro': f'Falha no servidor ao processar treino: {str(e)}'}), 500
+        current_app.logger.exception("Erro inesperado ao criar treino")
+        return jsonify({'erro': 'Falha no servidor ao processar treino.'}), 500
 
 
 @api_blueprint.route('/treinos', methods=['GET'])
 @require_api_key
 def listar_treinos() -> Tuple[Response, int]:
-    """Retrieves all workouts stored in database ordered by creation date desc."""
+    """Retrieves the most recent workouts (?limit=, default 50, max 200) ordered by creation date desc."""
+    limite = min(max(request.args.get('limit', 50, type=int), 1), 200)
     try:
-        treinos = Treino.query.order_by(Treino.criado_em.desc()).all()
+        treinos = Treino.query.order_by(Treino.criado_em.desc()).limit(limite).all()
         schema_resp = TreinoResponseSchema(many=True)
         return jsonify(schema_resp.dump(treinos)), 200
-    except Exception as e:
-        current_app.logger.error(f"Erro ao listar treinos: {str(e)}")
-        return jsonify({'erro': f'Erro ao acessar banco de dados: {str(e)}'}), 500
+    except Exception:
+        current_app.logger.exception("Erro ao listar treinos")
+        return jsonify({'erro': 'Erro ao acessar o banco de dados.'}), 500
 
 
 @api_blueprint.route('/treino/<int:id>', methods=['GET'])
@@ -114,9 +119,9 @@ def obter_treino(id: int) -> Tuple[Response, int]:
 
         schema_resp = TreinoResponseSchema()
         return jsonify(schema_resp.dump(treino)), 200
-    except Exception as e:
-        current_app.logger.error(f"Erro ao obter treino {id}: {str(e)}")
-        return jsonify({'erro': f'Erro ao carregar registro: {str(e)}'}), 500
+    except Exception:
+        current_app.logger.exception(f"Erro ao obter treino {id}")
+        return jsonify({'erro': 'Erro ao carregar registro.'}), 500
 
 
 @api_blueprint.route('/treino/<int:id>', methods=['DELETE'])
@@ -131,7 +136,7 @@ def deletar_treino(id: int) -> Tuple[Response, int]:
         db.session.delete(treino)
         db.session.commit()
         return jsonify({'mensagem': f'Treino com ID {id} deletado com sucesso!'}), 200
-    except Exception as e:
+    except Exception:
         db.session.rollback()
-        current_app.logger.error(f"Erro ao deletar treino {id}: {str(e)}")
-        return jsonify({'erro': f'Erro ao deletar registro: {str(e)}'}), 500
+        current_app.logger.exception(f"Erro ao deletar treino {id}")
+        return jsonify({'erro': 'Erro ao deletar registro.'}), 500

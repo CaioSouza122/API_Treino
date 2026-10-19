@@ -28,6 +28,17 @@ def _descrever_perfil(perfil: Dict[str, Any]) -> str:
     return f"Perfil do aluno: {', '.join(partes)}. Adapte volume e divisão a esse perfil. "
 
 
+def _formato_resposta(perfil: Dict[str, Any]) -> str:
+    """Fixed output format so clients can split the plan into days ('Treino A: ...' lines)."""
+    dias = perfil.get('vezes_por_semana')
+    divisao = f"Divida o plano em exatamente {dias} treinos. " if dias else ""
+    return (
+        f"{divisao}Responda sem introdução nem conclusão. Comece cada treino com uma linha "
+        f"exatamente no formato 'Treino A: <grupos musculares>' (depois Treino B, Treino C...) "
+        f"e liste abaixo um exercício por linha no formato '- <exercício> — <séries>x<repetições>'."
+    )
+
+
 def generate_treino(objetivo: str, nivel: str, perfil: Optional[Dict[str, Any]] = None) -> str:
     """Generates a personalized workout plan using Gemini 2.5 Flash AI.
 
@@ -54,7 +65,8 @@ def generate_treino(objetivo: str, nivel: str, perfil: Optional[Dict[str, Any]] 
         f"Você é um personal trainer altamente qualificado. "
         f"Crie um treino estruturado e objetivo focado em '{objetivo}' para um aluno de nível '{nivel}'. "
         f"{_descrever_perfil(perfil or {})}"
-        f"Inclua nomes de exercícios, número de séries e repetições recomendadas."
+        f"Inclua nomes de exercícios, número de séries e repetições recomendadas. "
+        f"{_formato_resposta(perfil or {})}"
     )
 
     try:
