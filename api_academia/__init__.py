@@ -27,12 +27,17 @@ def create_app(config_class: Type[Config] = Config) -> Flask:
     app.config.from_object(config_class)
     config_class.init_app(app)
 
-    # Configure CORS for allowed origins
-    allowed_origins = app.config.get('ALLOWED_ORIGINS', '*')
-    if isinstance(allowed_origins, str) and ',' in allowed_origins:
-        allowed_origins = [origin.strip() for origin in allowed_origins.split(',')]
+    # Fail closed: outside debug/testing the API must never run without authentication
+    api_key = app.config.get('API_AUTH_KEY') or ''
+    if not api_key.strip() and not (app.config.get('DEBUG') or app.config.get('TESTING')):
+        raise RuntimeError("API_AUTH_KEY é obrigatória em produção (defina FLASK_DEBUG=True só em desenvolvimento).")
 
-    CORS(app, resources={r"/*": {"origins": allowed_origins}})
+    # Configure CORS only for explicitly allowed browser origins
+    allowed_origins = [
+        origin.strip() for origin in (app.config.get('ALLOWED_ORIGINS') or '').split(',') if origin.strip()
+    ]
+    if allowed_origins:
+        CORS(app, resources={r"/*": {"origins": allowed_origins}})
 
     # Initialize extensions
     limiter.init_app(app)

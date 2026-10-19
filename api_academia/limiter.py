@@ -1,11 +1,26 @@
+import hashlib
+
+from flask import request
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 
-# Initialize Flask-Limiter using the client's remote IP address
-# Defaults to 100 requests per day and 30 per hour across all routes.
-# Stricter custom limits can be applied to specific routes (e.g., Gemini endpoint)
+
+def client_key() -> str:
+    """Rate-limit bucket: the API key when sent (one bucket per client project), else the IP.
+
+    Behind Render's proxy every request from the HIPERTROF.IA backend arrives from the
+    same address, so counting by IP alone would make all app users share one tiny quota.
+    """
+    api_key = request.headers.get('X-API-KEY')
+    if api_key:
+        return "key:" + hashlib.sha256(api_key.encode()).hexdigest()[:16]
+    return "ip:" + get_remote_address()
+
+
+# shortcut: memory storage is per gunicorn worker, so the real limit is N_workers x the value.
+# Fine for 2 workers; switch storage_uri to Redis if the API scales out to several instances.
 limiter = Limiter(
-    key_func=get_remote_address,
-    default_limits=["100 per day", "30 per hour"],
-    storage_uri="memory://"  # In-memory rate limiting, perfect for SQLite/PostgreSQL setups
+    key_func=client_key,
+    default_limits=["600 per hour"],
+    storage_uri="memory://"
 )

@@ -28,7 +28,7 @@ def test_criar_treino_sucesso(client: FlaskClient, auth_headers: dict, mock_gemi
     assert 'criado_em' in data
 
     # Verify mock service was called with correct parameters
-    mock_gemini.assert_called_once_with(objetivo=payload['objetivo'], nivel=payload['nivel'])
+    mock_gemini.assert_called_once_with(objetivo=payload['objetivo'], nivel=payload['nivel'], perfil={})
 
 
 def test_criar_treino_payload_invalido(client: FlaskClient, auth_headers: dict):

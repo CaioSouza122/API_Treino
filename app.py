@@ -1,14 +1,8 @@
 """Main application entry point for API_Treino.
 
-This module initializes the Flask application using the factory pattern
-and configures the root landing route for health & documentation guidance.
+This module initializes the Flask application using the factory pattern.
+Production: `gunicorn app:app` (settings in gunicorn.conf.py). Local: `python app.py`.
 """
-
-import sys
-from pathlib import Path
-
-# Add package root directory to sys.path
-sys.path.insert(0, str(Path(__file__).parent))
 
 from api_academia import create_app
 
