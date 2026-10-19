@@ -90,6 +90,7 @@ ela é **obrigatória**: sem ela a API não inicia.
 | Variável | Obrigatória | Descrição |
 | --- | --- | --- |
 | `GEMINI_API_KEY` | Sim | Chave do Google AI Studio. |
+| `GEMINI_MODELOS` | Não | Modelos tentados em ordem, separados por vírgula. Padrão: `gemini-2.5-flash,gemini-3.5-flash-lite`. |
 | `API_AUTH_KEY` | Em produção | Valor esperado no cabeçalho `X-API-KEY`. |
 | `DATABASE_URL` | Não | Postgres do Neon. Vazio = SQLite local `api_academia.db`. |
 | `FLASK_DEBUG` | Não | `True` só em desenvolvimento. Padrão: `False`. |
@@ -149,6 +150,9 @@ curl -X POST http://localhost:5000/api/v1/treino \
 | `idade` | inteiro | Opcional, 10 a 100 |
 | `vezes_por_semana` | inteiro | Opcional, 1 a 7 — define quantos treinos o plano terá |
 | `tempo` | inteiro | Opcional, 10 a 300 minutos por sessão |
+
+Se o Gemini estiver sobrecarregado (429/500/503), a API tenta de novo e depois passa para o modelo
+reserva (`gemini-3.5-flash-lite`). Erros permanentes, como chave inválida, falham na hora.
 
 Campos desconhecidos são recusados. O prompt pede ao Gemini um formato fixo, sem introdução,
 com cada dia começando por `Treino A: <grupos musculares>`.

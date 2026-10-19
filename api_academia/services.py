@@ -40,6 +40,42 @@ def _formato_resposta(perfil: Dict[str, Any]) -> str:
     )
 
 
+# Main model first; the lighter model is a fallback when the main one is overloaded
+# ("This model is currently experiencing high demand"), which happens during usage spikes.
+# GEMINI_MODELOS (comma-separated) overrides the list without a code change; Google retires
+# models (gemini-2.5-flash-lite returned 404 for new keys in Oct 2026).
+MODELOS_PADRAO = ("gemini-2.5-flash", "gemini-3.5-flash-lite")
+TENTATIVAS_POR_MODELO = 2
+ESPERA_ENTRE_TENTATIVAS = 2  # seconds
+ERROS_TEMPORARIOS = (429, 500, 503)
+
+
+def modelos_configurados() -> tuple:
+    bruto = current_app.config.get('GEMINI_MODELOS') or ''
+    modelos = tuple(m.strip() for m in bruto.split(',') if m.strip())
+    return modelos or MODELOS_PADRAO
+
+
+def _gerar_com_reserva(client, prompt: str):
+    """Tries each configured model in order; moves on only for transient errors (overload / rate limit)."""
+    ultimo_erro: Optional[Exception] = None
+    for modelo in modelos_configurados():
+        for tentativa in range(TENTATIVAS_POR_MODELO):
+            try:
+                return client.models.generate_content(model=modelo, contents=prompt)
+            except Exception as exc:
+                if getattr(exc, 'code', None) not in ERROS_TEMPORARIOS:
+                    # Bad key or bad request: another model would fail the same way
+                    current_app.logger.error(f"Erro na integração com Google Gemini API ({modelo}): {exc}")
+                    raise RuntimeError(f"Falha na comunicação com o serviço de IA: {exc}") from exc
+                ultimo_erro = exc
+                current_app.logger.warning(f"Gemini {modelo} indisponível (tentativa {tentativa + 1}): {exc}")
+                if tentativa + 1 < TENTATIVAS_POR_MODELO:
+                    time.sleep(ESPERA_ENTRE_TENTATIVAS)
+    current_app.logger.error(f"Todos os modelos do Gemini indisponíveis: {ultimo_erro}")
+    raise RuntimeError(f"Falha na comunicação com o serviço de IA: {ultimo_erro}") from ultimo_erro
+
+
 def generate_treino(objetivo: str, nivel: str, perfil: Optional[Dict[str, Any]] = None) -> str:
     """Generates a personalized workout plan using Gemini 2.5 Flash AI.
 
@@ -70,23 +106,7 @@ def generate_treino(objetivo: str, nivel: str, perfil: Optional[Dict[str, Any]] 
         f"{_formato_resposta(perfil or {})}"
     )
 
-    # 429/500/503 ("high demand") are transient on Gemini: retry with a short backoff
-    esperas = (2, 4)
-    for tentativa in range(len(esperas) + 1):
-        try:
-            response = client.models.generate_content(
-                model='gemini-2.5-flash',
-                contents=prompt_ia,
-            )
-            break
-        except Exception as exc:
-            temporario = getattr(exc, 'code', None) in (429, 500, 503)
-            if temporario and tentativa < len(esperas):
-                current_app.logger.warning(f"Gemini indisponível ({exc}); nova tentativa em {esperas[tentativa]}s")
-                time.sleep(esperas[tentativa])
-                continue
-            current_app.logger.error(f"Erro na integração com Google Gemini API: {exc}")
-            raise RuntimeError(f"Falha na comunicação com o serviço de IA: {str(exc)}") from exc
+    response = _gerar_com_reserva(client, prompt_ia)
 
     if not response or not getattr(response, 'text', None):
         raise ValueError("O modelo do Gemini não retornou nenhum conteúdo válido.")

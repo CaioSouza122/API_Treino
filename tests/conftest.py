@@ -22,6 +22,7 @@ class TestConfig(Config):
     GEMINI_API_KEY = "test_gemini_api_key_mock"
     API_AUTH_KEY = "test_secret_api_key"
     ALLOWED_ORIGINS = ""  # isolate tests from whatever the local .env sets
+    GEMINI_MODELOS = ""
 
 
 @pytest.fixture

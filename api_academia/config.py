@@ -27,6 +27,8 @@ class Config:
 
     # API credentials
     GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
+    # Optional: models to try in order, e.g. "gemini-2.5-flash,gemini-3.5-flash-lite"
+    GEMINI_MODELOS = os.getenv('GEMINI_MODELOS', '')
     API_AUTH_KEY = os.getenv('API_AUTH_KEY')
 
     # CORS Security
