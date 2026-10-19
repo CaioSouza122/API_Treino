@@ -9,7 +9,7 @@ from flask_limiter.errors import RateLimitExceeded
 
 from .database import db
 from .models import Treino
-from .schemas import TreinoRequestSchema, TreinoResponseSchema
+from .schemas import PERFIL_FIELDS, TreinoRequestSchema, TreinoResponseSchema
 from .auth import require_api_key
 from .services import generate_treino
 from .limiter import limiter
@@ -59,10 +59,11 @@ def criar_treino() -> Tuple[Response, int]:
     dados_validados = schema_req.load(dados_requisicao)
     objetivo = dados_validados.get('objetivo')
     nivel = dados_validados.get('nivel', 'iniciante')
+    perfil = {campo: dados_validados[campo] for campo in PERFIL_FIELDS if campo in dados_validados}
 
     try:
         # Call Gemini AI Service
-        treino_gerado_texto = generate_treino(objetivo=objetivo, nivel=nivel)
+        treino_gerado_texto = generate_treino(objetivo=objetivo, nivel=nivel, perfil=perfil)
 
         # Persist to database
         novo_treino = Treino(

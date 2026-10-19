@@ -36,6 +36,8 @@ class Config:
         SQLALCHEMY_DATABASE_URI = f'sqlite:///{DEFAULT_DB_PATH}'
         
     SQLALCHEMY_TRACK_MODIFICATIONS = False
+    # Neon closes idle connections: test each pooled connection before reuse
+    SQLALCHEMY_ENGINE_OPTIONS = {"pool_pre_ping": True, "pool_recycle": 300}
 
     @staticmethod
     def init_app(app):
