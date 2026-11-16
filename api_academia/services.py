@@ -7,8 +7,10 @@ ensuring clean separation of concerns from HTTP controllers and routes.
 import time
 from typing import Any, Dict, Optional
 
+import httpx
 from flask import current_app
 from google import genai
+from google.genai import types
 
 
 def _descrever_perfil(perfil: Dict[str, Any]) -> str:
@@ -48,6 +50,8 @@ MODELOS_PADRAO = ("gemini-2.5-flash", "gemini-3.5-flash-lite")
 TENTATIVAS_POR_MODELO = 2
 ESPERA_ENTRE_TENTATIVAS = 2  # seconds
 ERROS_TEMPORARIOS = (429, 500, 503)
+# Per call; a generation takes ~10-25s. Two hung models = 60s, inside the backend's 90s and gunicorn's 120s
+TIMEOUT_GEMINI_MS = 30_000
 
 
 def modelos_configurados() -> tuple:
@@ -64,6 +68,11 @@ def _gerar_com_reserva(client, prompt: str):
             try:
                 return client.models.generate_content(model=modelo, contents=prompt)
             except Exception as exc:
+                if getattr(exc, 'code', None) == 404 or isinstance(exc, httpx.TimeoutException):
+                    # Retired model (404) or hung call: the same model won't recover, try the next one
+                    ultimo_erro = exc
+                    current_app.logger.warning(f"Gemini {modelo} sem resposta, indo para o próximo modelo: {exc}")
+                    break
                 if getattr(exc, 'code', None) not in ERROS_TEMPORARIOS:
                     # Bad key or bad request: another model would fail the same way
                     current_app.logger.error(f"Erro na integração com Google Gemini API ({modelo}): {exc}")
@@ -97,7 +106,7 @@ def generate_treino(objetivo: str, nivel: str, perfil: Optional[Dict[str, Any]] 
             "Chave de API do Gemini não configurada. Defina a variável GEMINI_API_KEY no arquivo .env."
         )
 
-    client = genai.Client(api_key=api_key)
+    client = genai.Client(api_key=api_key, http_options=types.HttpOptions(timeout=TIMEOUT_GEMINI_MS))
     prompt_ia = (
         f"Você é um personal trainer altamente qualificado. "
         f"Crie um treino estruturado e objetivo focado em '{objetivo}' para um aluno de nível '{nivel}'. "

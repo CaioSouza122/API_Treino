@@ -3,6 +3,7 @@
 
 import json
 
+import httpx
 import pytest
 from flask.testing import FlaskClient
 
@@ -120,6 +121,31 @@ def test_erro_permanente_do_gemini_nao_repete(app, mocker):
     with pytest.raises(RuntimeError):
         generate_treino(objetivo="hipertrofia", nivel="iniciante")
     assert gerar.call_count == 1
+
+
+def test_modelo_aposentado_usa_modelo_reserva(app, mocker):
+    """404 = model retired by Google: skip it at once, no retry on the same model."""
+    gerar = _gemini_falso(mocker, [_ErroGemini(404), mocker.Mock(text="Treino A: Ombros")])
+
+    assert generate_treino(objetivo="hipertrofia", nivel="iniciante") == "Treino A: Ombros"
+    assert _modelos_chamados(gerar) == ["gemini-2.5-flash", "gemini-3.5-flash-lite"]
+
+
+def test_timeout_usa_modelo_reserva_e_cliente_tem_limite(app, mocker):
+    gerar = _gemini_falso(mocker, [httpx.ReadTimeout("lento"), mocker.Mock(text="Treino A: Bracos")])
+
+    assert generate_treino(objetivo="hipertrofia", nivel="iniciante") == "Treino A: Bracos"
+    assert _modelos_chamados(gerar) == ["gemini-2.5-flash", "gemini-3.5-flash-lite"]
+    import api_academia.services as services
+    assert services.genai.Client.call_args.kwargs['http_options'].timeout == services.TIMEOUT_GEMINI_MS
+
+
+def test_todos_os_modelos_aposentados_falha(app, mocker):
+    gerar = _gemini_falso(mocker, _ErroGemini(404))
+
+    with pytest.raises(RuntimeError):
+        generate_treino(objetivo="hipertrofia", nivel="iniciante")
+    assert gerar.call_count == 2
 
 
 def test_lista_de_modelos_configuravel_por_variavel(app, mocker):
