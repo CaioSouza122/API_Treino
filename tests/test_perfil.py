@@ -123,6 +123,17 @@ def test_erro_permanente_do_gemini_nao_repete(app, mocker):
     assert gerar.call_count == 1
 
 
+def test_chave_recusada_responde_500_com_codigo(client: FlaskClient, auth_headers: dict, mocker):
+    """500 (not 502) so the backend does not retry a refused key; the code says why."""
+    gerar = _gemini_falso(mocker, _ErroGemini(400))
+
+    response = client.post('/api/v1/treino', data=json.dumps(PERFIL_COMPLETO), headers=auth_headers)
+
+    assert response.status_code == 500
+    assert response.get_json()['codigo'] == 'gemini_http_400'
+    assert gerar.call_count == 1
+
+
 def test_modelo_aposentado_usa_modelo_reserva(app, mocker):
     """404 = model retired by Google: skip it at once, no retry on the same model."""
     gerar = _gemini_falso(mocker, [_ErroGemini(404), mocker.Mock(text="Treino A: Ombros")])
