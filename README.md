@@ -152,7 +152,8 @@ curl -X POST http://localhost:5000/api/v1/treino \
 | `tempo` | inteiro | Opcional, 10 a 300 minutos por sessão |
 
 Se o Gemini estiver sobrecarregado (429/500/503), a API tenta de novo e depois passa para o modelo
-reserva (`gemini-3.5-flash-lite`). Erros permanentes, como chave inválida, falham na hora.
+reserva (`gemini-3.5-flash-lite`). Modelo aposentado (404) ou chamada sem resposta em 30s passam
+direto para o modelo reserva. Erros permanentes, como chave inválida, falham na hora.
 
 Campos desconhecidos são recusados. O prompt pede ao Gemini um formato fixo, sem introdução,
 com cada dia começando por `Treino A: <grupos musculares>`.
