@@ -54,6 +54,14 @@ ERROS_TEMPORARIOS = (429, 500, 503)
 TIMEOUT_GEMINI_MS = 30_000
 
 
+class GeminiRecusou(RuntimeError):
+    """Gemini refused the request (bad key, bad request): retrying won't help."""
+
+    def __init__(self, mensagem: str, code):
+        super().__init__(mensagem)
+        self.code = code
+
+
 def modelos_configurados() -> tuple:
     bruto = current_app.config.get('GEMINI_MODELOS') or ''
     modelos = tuple(m.strip() for m in bruto.split(',') if m.strip())
@@ -76,7 +84,8 @@ def _gerar_com_reserva(client, prompt: str):
                 if getattr(exc, 'code', None) not in ERROS_TEMPORARIOS:
                     # Bad key or bad request: another model would fail the same way
                     current_app.logger.error(f"Erro na integração com Google Gemini API ({modelo}): {exc}")
-                    raise RuntimeError(f"Falha na comunicação com o serviço de IA: {exc}") from exc
+                    mensagem = f"Falha na comunicação com o serviço de IA: {exc}"
+                    raise GeminiRecusou(mensagem, getattr(exc, 'code', None)) from exc
                 ultimo_erro = exc
                 current_app.logger.warning(f"Gemini {modelo} indisponível (tentativa {tentativa + 1}): {exc}")
                 if tentativa + 1 < TENTATIVAS_POR_MODELO:

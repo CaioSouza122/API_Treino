@@ -11,7 +11,7 @@ from .database import db
 from .models import Treino
 from .schemas import PERFIL_FIELDS, TreinoRequestSchema, TreinoResponseSchema
 from .auth import require_api_key
-from .services import generate_treino
+from .services import GeminiRecusou, generate_treino
 from .limiter import limiter
 
 api_blueprint = Blueprint('api', __name__)
@@ -84,6 +84,11 @@ def criar_treino() -> Tuple[Response, int]:
         db.session.rollback()
         current_app.logger.warning(f"Treino não gerado: {ve}")
         return jsonify({'erro': 'Não foi possível gerar o treino com os dados enviados.'}), 400
+    except GeminiRecusou as gr:
+        # 500, not 502: the backend retries 502, and a refused key would fail the same way
+        db.session.rollback()
+        current_app.logger.error(f"Gemini recusou o pedido: {gr}")
+        return jsonify({'erro': 'O serviço de IA recusou o pedido.', 'codigo': f'gemini_http_{gr.code}'}), 500
     except RuntimeError as re:
         db.session.rollback()
         current_app.logger.error(f"Falha no serviço de IA: {re}")
