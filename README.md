@@ -11,16 +11,17 @@
 API REST em **Flask** que gera planos de treino com o **Google Gemini 2.5 Flash** e guarda cada
 plano gerado em **PostgreSQL** (Neon) ou SQLite local.
 
-É o serviço de IA do app **[HIPERTROF.IA](https://github.com/CaioSouza122/treino-app)**: o backend
-FastAPI do app chama `POST /api/v1/treino` com o perfil do usuário e transforma o texto devolvido
-em dias de treino (A, B, C...). A API é pensada para ser chamada **de servidor para servidor**,
-autenticada por chave.
+A API é pensada para ser chamada **de servidor para servidor**, autenticada por chave.
 
 ```
-App mobile → backend FastAPI (treino-app) → POST /api/v1/treino (esta API) → Gemini
-                                                    ↓
-                                            Neon / SQLite (tabela treinos)
+Cliente (servidor) → POST /api/v1/treino (esta API) → Gemini
+                              ↓
+                      Neon / SQLite (tabela treinos)
 ```
+
+> O app **[HIPERTROF.IA](https://github.com/CaioSouza122/treino-app)** usava esta API para gerar
+> treinos. Desde nov/2026 o backend dele conversa com o Gemini direto (Coach IA em chat) e não
+> depende mais deste serviço.
 
 ---
 
@@ -210,7 +211,7 @@ testes em todo push e pull request.
    - Health check path: `/api/v1/health`
 3. Preencha no painel: `GEMINI_API_KEY`, `API_AUTH_KEY` (gere uma chave forte), `DATABASE_URL`
    (Neon) e `FLASK_DEBUG=False`. Deixe `ALLOWED_ORIGINS` vazio.
-4. No backend do HIPERTROF.IA, use o mesmo valor de `API_AUTH_KEY` em `TREINO_API_KEY`.
+4. Os clientes enviam o valor de `API_AUTH_KEY` no cabeçalho `X-API-KEY`.
 
 A migration inicial só cria a tabela `treinos` se ela não existir, então um banco que já estava em
 uso é adotado sem perder dados. O controle de versão fica na tabela `alembic_version_api_treino`,
